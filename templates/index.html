@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>통합 다운로더</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1d1f23; --muted:#6b7280; --line:#e3e5e8; --accent:#e5322d; --accent-text:#fff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#141518; --card:#1d1f23; --text:#ececee; --muted:#9a9ea6; --line:#2e3036; --accent:#ff4e45; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui, "Malgun Gothic", sans-serif; }
+  main { max-width:640px; margin:48px auto; padding:0 16px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .lead { margin:0 0 20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; margin-bottom:16px; }
+  .row { display:flex; gap:8px; }
+  input[type=text] { flex:1; min-width:0; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:transparent; color:inherit; font:inherit; }
+  button { padding:10px 16px; border:0; border-radius:8px; background:var(--accent); color:var(--accent-text); font:inherit; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  .settings { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; }
+  .meta { display:flex; gap:14px; }
+  .meta img { width:160px; aspect-ratio:16/9; object-fit:cover; border-radius:8px; flex-shrink:0; background:var(--line); }
+  .meta h2 { font-size:16px; margin:0 0 4px; overflow-wrap:anywhere; }
+  .badge { display:inline-block; font-size:12px; font-weight:600; padding:1px 8px; border-radius:99px; border:1px solid var(--line); margin-bottom:6px; }
+  .muted { color:var(--muted); font-size:13px; }
+  .opts { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-top:16px; }
+  select { padding:8px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:inherit; font:inherit; }
+  .bar { height:8px; background:var(--line); border-radius:4px; overflow:hidden; margin:10px 0 6px; }
+  .bar > div { height:100%; width:0; background:var(--accent); transition:width .3s; }
+  .error { color:var(--accent); }
+  .hidden { display:none !important; }
+  .orgtoggle { cursor:pointer; gap:6px; }
+  .orgtoggle b { color:var(--text); font-weight:600; }
+  button.ghost { background:transparent; color:var(--accent); border:1px solid var(--line); padding:6px 12px; font-size:13px; }
+  .chhead { display:flex; justify-content:space-between; align-items:baseline; }
+  .grp { font-size:13px; font-weight:700; margin:14px 0 6px; color:var(--muted); }
+  .grp:first-child { margin-top:0; }
+  .ch { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--line); border-radius:10px; margin-bottom:6px; }
+  .ch .nm { flex:1; min-width:0; }
+  .ch .nm b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ch .nm small { color:var(--muted); font-size:12px; }
+  .ch input { width:150px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; background:transparent; color:inherit; font:inherit; font-size:13px; }
+  .ch .pf { font-size:11px; font-weight:700; padding:1px 6px; border-radius:6px; border:1px solid var(--line); color:var(--muted); }
+  .empty { color:var(--muted); font-size:13px; padding:8px 0; }
+  @media (max-width:480px) { .meta { flex-direction:column; } .meta img { width:100%; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>통합 다운로더</h1>
+  <p class="lead muted">YouTube · Instagram · TikTok 주소를 붙여넣으면 자동으로 알아봅니다.</p>
+
+  <div class="card">
+    <div class="row">
+      <input id="url" type="text" placeholder="영상·게시물 주소를 붙여넣으세요">
+      <button id="fetchBtn">조회</button>
+    </div>
+    <div class="settings muted">
+      <label for="login">로그인</label>
+      <select id="login">
+        <option value="none">사용 안 함</option>
+        <option value="firefox">Firefox 로그인 사용</option>
+        <option value="edge">Edge 로그인 사용</option>
+        <option value="chrome">Chrome 로그인 사용</option>
+        <option value="file">cookies.txt 파일 사용</option>
+      </select>
+      <span>Instagram 사진·비공개 게시물에 필요</span>
+    </div>
+    <label class="settings muted orgtoggle"><input type="checkbox" id="organize" checked>
+      <b>채널백업에 바로 저장</b> — <span id="orgRoot">채널백업</span> › 채널_날짜_제목</label>
+    <p id="msg" class="muted"></p>
+  </div>
+
+  <div id="infoCard" class="card hidden">
+    <div class="meta">
+      <img id="thumb" alt="" referrerpolicy="no-referrer">
+      <div>
+        <span class="badge" id="badge"></span>
+        <h2 id="title"></h2>
+        <div class="muted" id="sub"></div>
+      </div>
+    </div>
+    <div class="opts">
+      <span id="modeOpts">
+        <label><input type="radio" name="mode" value="video" checked> 영상 (MP4)</label>
+        <label><input type="radio" name="mode" value="audio"> 음원 (MP3)</label>
+      </span>
+      <select id="quality"></select>
+      <button id="dlBtn">다운로드</button>
+    </div>
+  </div>
+
+  <div id="progCard" class="card hidden">
+    <div id="progText">준비 중…</div>
+    <div class="bar"><div id="barFill"></div></div>
+    <div class="muted" id="progSub"></div>
+    <button id="revealBtn" class="ghost hidden" style="margin-top:10px">폴더 열기</button>
+  </div>
+
+  <div id="chCard" class="card">
+    <div class="chhead"><h2 style="margin:0;font-size:16px">채널백업</h2><span class="muted" id="chCount" style="margin-left:8px"></span>
+      <button class="ghost" id="openRoot" style="margin-left:auto">폴더 열기</button></div>
+    <p class="muted" style="margin:4px 0 12px">폴더를 나누지 않고 한 곳에 모아요. 파일 이름 맨 앞이 채널이라 이름순으로 보면 채널끼리 붙어 있어요.</p>
+    <div id="chList"></div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmtTime = s => s == null ? "" : new Date(s * 1000).toISOString().substr(s >= 3600 ? 11 : 14, s >= 3600 ? 8 : 5);
+const PLATFORM = { youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok", other: "기타 사이트" };
+const OFFLINE = "서버에 연결할 수 없습니다. 통합 다운로더 폴더의 run.bat 을 실행한 뒤 다시 시도하세요.";
+let current = null;  // 마지막 조회 결과
+
+// 로그인 선택은 이 브라우저에 기억 (저장이 막혀 있어도 동작에는 지장 없음)
+try { const v = localStorage.getItem("login"); if (v) $("login").value = v; } catch {}
+$("login").onchange = () => { try { localStorage.setItem("login", $("login").value); } catch {} };
+
+async function api(path, body) {
+  let res;
+  try {
+    res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  } catch { throw new Error(OFFLINE); }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "요청 실패");
+  return data;
+}
+
+$("fetchBtn").onclick = async () => {
+  const url = $("url").value.trim();
+  if (!url) return;
+  $("fetchBtn").disabled = true;
+  $("msg").className = "muted"; $("msg").textContent = "정보를 가져오는 중…";
+  $("infoCard").classList.add("hidden"); $("progCard").classList.add("hidden");
+  try {
+    const d = await api("/api/info", { url, login: $("login").value });
+    current = { ...d, url };
+    $("thumb").src = d.thumbnail || "";
+    $("badge").textContent = PLATFORM[d.platform] || d.platform;
+    $("title").textContent = d.title || "(제목 없음)";
+    const extra = d.kind === "photos" ? `사진·영상 ${d.count}개 (ZIP으로 저장)`
+                : d.kind === "multi" ? `항목 ${d.count}개 (ZIP으로 저장)` : fmtTime(d.duration);
+    $("sub").textContent = [d.uploader, extra].filter(Boolean).join(" · ");
+    $("quality").innerHTML = '<option value="best">최고 화질</option>' +
+      d.heights.map(h => `<option value="${h}">${h}p</option>`).join("");
+    // 사진 게시물은 원본 그대로 받으므로 형식·화질 선택을 숨김
+    $("modeOpts").classList.toggle("hidden", d.kind === "photos");
+    $("quality").classList.toggle("hidden", d.kind === "photos" || !d.heights.length);
+    $("infoCard").classList.remove("hidden");
+    $("msg").textContent = "";
+  } catch (e) {
+    $("msg").className = "error"; $("msg").textContent = e.message;
+  } finally {
+    $("fetchBtn").disabled = false;
+  }
+};
+$("url").addEventListener("keydown", e => { if (e.key === "Enter") $("fetchBtn").click(); });
+
+document.querySelectorAll("input[name=mode]").forEach(r => r.onchange = () => {
+  $("quality").disabled = r.value === "audio" && r.checked;
+});
+
+$("dlBtn").onclick = async () => {
+  if (!current) return;
+  const mode = document.querySelector("input[name=mode]:checked").value;
+  $("dlBtn").disabled = true;
+  $("progCard").classList.remove("hidden");
+  $("progText").className = ""; $("progText").textContent = "준비 중…";
+  $("barFill").style.width = "0";
+  $("progSub").textContent = "";
+  $("revealBtn").classList.add("hidden");
+  try {
+    const { job_id } = await api("/api/download", {
+      url: current.url, kind: current.kind, count: current.count,
+      mode, quality: $("quality").value, login: $("login").value,
+    });
+    poll(job_id);
+  } catch (e) {
+    $("progText").className = "error"; $("progText").textContent = e.message;
+    $("dlBtn").disabled = false;
+  }
+};
+
+async function poll(id) {
+  let j;
+  try { j = await (await fetch(`/api/progress/${id}`)).json(); }
+  catch {
+    $("progText").className = "error"; $("progText").textContent = OFFLINE;
+    $("dlBtn").disabled = false;
+    return;
+  }
+  $("barFill").style.width = j.percent + "%";
+  const item = j.item ? ` (${j.item})` : "";
+  if (j.status === "downloading") {
+    $("progText").textContent = `다운로드 중${item}… ${j.percent}%`;
+    $("progSub").textContent = [j.speed, j.eta && `남은 시간 ${j.eta}`].filter(Boolean).join(" · ");
+  } else if (j.status === "processing") {
+    $("progText").textContent = `변환·병합 중${item}…`; $("progSub").textContent = "";
+  } else if (j.status === "done") {
+    if (j.saved_to) {   // 채널백업에 바로 정리됨 → 다시 내려받지 않음
+      $("progText").textContent = j.count ? `완료! ${j.count}개를 채널백업에 저장했어요.` : "완료! 채널백업에 저장했어요.";
+      $("progSub").textContent = j.saved_rel.split("\\").join(" › ") + (j.resolution ? ` (${j.resolution})` : "");
+      $("revealBtn").classList.remove("hidden");
+      $("revealBtn").onclick = () => api("/api/reveal", { job_id: id }).catch(() => {});
+      loadChannels();
+    } else {
+      $("progText").textContent = j.count ? `완료! ${j.count}개를 ZIP으로 저장합니다.` : "완료! 파일을 저장합니다.";
+      $("progSub").textContent = j.resolution ? `${j.filename} (${j.resolution})` : j.filename;
+      location.href = `/api/file/${id}`;
+    }
+    $("dlBtn").disabled = false;
+    return;
+  } else if (j.status === "error") {
+    $("progText").className = "error"; $("progText").textContent = "실패: " + j.error;
+    $("dlBtn").disabled = false;
+    return;
+  }
+  setTimeout(() => poll(id), 700);
+}
+
+// ---------- 채널 정리 ----------
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const PF = { youtube: "YT", instagram: "IG", tiktok: "TT" };
+async function loadChannels() {
+  let d;
+  try { d = await (await fetch("/api/channels")).json(); } catch { return; }
+  $("organize").checked = d.enabled;
+  $("orgRoot").textContent = d.root.split("\\").join(" › ");
+  const gb = d.size / 1e9;
+  $("chCount").textContent = `파일 ${d.files}개 · ${gb >= 1 ? gb.toFixed(1) + " GB" : Math.round(d.size / 1e6) + " MB"}`;
+  if (!d.channels.length) { $("chList").innerHTML = '<div class="empty">아직 받은 파일이 없어요.</div>'; return; }
+  $("chList").innerHTML = d.channels.map(c => `<div class="ch">
+        <span class="pf">${PF[c.platform] || "··"}</span>
+        <div class="nm"><b title="${esc(c.name)}">${esc(c.name)}</b><small>${c.count}개</small></div></div>`).join("");
+}
+$("openRoot").onclick = () => api("/api/reveal", {}).catch(e => alert(e.message));
+$("organize").onchange = () => api("/api/organize", { enabled: $("organize").checked }).catch(() => {});
+loadChannels();
+</script>
+</body>
+</html>

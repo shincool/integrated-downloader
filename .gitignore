@@ -1,0 +1,22 @@
+# 개인 정보 — 절대 올리지 않기
+cookies.txt
+*.cookies
+channels.json
+
+# 받은 파일 · 기록
+downloads/
+server.log
+update.log
+*.log
+.last-update
+
+# 실행 환경
+.venv/
+__pycache__/
+*.pyc
+
+# 이 PC 전용 도구 · 예전 파일
+*.bak
+backup/
+flatten_backup.py
+tidy_downloads.py
